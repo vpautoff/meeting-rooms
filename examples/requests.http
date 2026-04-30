@@ -1,0 +1,68 @@
+http
+### Корневой эндпоинт
+GET http://127.0.0.1:8080/
+
+### Список переговорок
+GET http://127.0.0.1:8080/rooms
+
+### Создать бронирование
+POST http://127.0.0.1:8080/bookings
+Content-Type: application/json
+
+{
+  "user_id":   "u-123",
+  "room_id":   1,
+  "starts_at": "2026-05-01T10:00:00",
+  "ends_at":   "2026-05-01T11:00:00",
+  "title":     "Sync команды"
+}
+
+### Ещё одно бронирование
+POST http://127.0.0.1:8080/bookings
+Content-Type: application/json
+
+{
+  "user_id":   "u-456",
+  "room_id":   2,
+  "starts_at": "2026-05-01T14:00:00",
+  "ends_at":   "2026-05-01T15:30:00",
+  "title":     "1:1"
+}
+
+### Бронирования пользователя
+GET http://127.0.0.1:8080/bookings?user_id=u-123
+
+### Бронирования по комнате
+GET http://127.0.0.1:8080/bookings?room_id=1
+
+### Невалидный — нет user_id
+POST http://127.0.0.1:8080/bookings
+Content-Type: application/json
+
+{
+  "room_id":   1,
+  "starts_at": "2026-05-01T10:00:00",
+  "ends_at":   "2026-05-01T11:00:00"
+}
+
+### Невалидный — ends_at <= starts_at
+POST http://127.0.0.1:8080/bookings
+Content-Type: application/json
+
+{
+  "user_id":   "u-123",
+  "room_id":   1,
+  "starts_at": "2026-05-01T11:00:00",
+  "ends_at":   "2026-05-01T10:00:00"
+}
+
+### Несуществующая комната
+POST http://127.0.0.1:8080/bookings
+Content-Type: application/json
+
+{
+  "user_id":   "u-123",
+  "room_id":   999,
+  "starts_at": "2026-05-01T10:00:00",
+  "ends_at":   "2026-05-01T11:00:00"
+}
