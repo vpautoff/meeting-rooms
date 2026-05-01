@@ -21,8 +21,8 @@ try {
                 'service'   => 'meeting-rooms-booking',
                 'endpoints' => [
                     'POST /bookings',
-                    'GET  /bookings?user_id=...',
-                    'GET  /bookings?room_id=...',
+                    'GET  /bookings?user_id=...&page=1&limit=50',
+                    'GET  /bookings?room_id=...&page=1&limit=50',
                     'GET  /rooms',
                 ],
             ]);
@@ -45,7 +45,9 @@ try {
 
         case $method === 'GET' && $path === '/bookings':
             $userId = isset($_GET['user_id']) ? trim((string)$_GET['user_id']) : '';
-            $roomId = isset($_GET['room_id']) ? (int)$_GET['room_id']         : 0;
+            $roomId = isset($_GET['room_id']) ? (int)$_GET['room_id'] : 0;
+            $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+            $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 50;
 
             if ($userId === '' && $roomId <= 0) {
                 Response::error('Provide user_id or room_id query parameter', 400);
@@ -53,8 +55,8 @@ try {
             }
 
             $result = $userId !== ''
-                ? Bookings::listByUser($userId)
-                : Bookings::listByRoom($roomId);
+                ? Bookings::listByUser($userId, $page, $limit)
+                : Bookings::listByRoom($roomId, $page, $limit);
 
             Response::json($result);
             break;
@@ -65,5 +67,6 @@ try {
 } catch (InvalidArgumentException $e) {
     Response::error($e->getMessage(), 422);
 } catch (Throwable $e) {
-    Response::error('Internal error: ' . $e->getMessage(), 500);
+    error_log('[meeting-rooms] ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+    Response::error('Internal error', 500);
 }

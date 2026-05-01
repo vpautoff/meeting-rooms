@@ -9,6 +9,9 @@ use InvalidArgumentException;
 
 final class Bookings
 {
+    private const DEFAULT_LIMIT = 50;
+    private const MAX_LIMIT = 200;
+
     /**
      * @param array<string, mixed> $data
      * @return array<string, mixed>
@@ -101,27 +104,31 @@ final class Bookings
     }
 
     /**
-     * @return array<int, array<string, mixed>>
+     * @return array{data: list<array<string, mixed>>, pagination: array<string, int>}
      */
-    public static function listByUser(string $userId): array
+    public static function listByUser(string $userId, int $page, int $limit): array
     {
-        $stmt = Database::pdo()->prepare(
-            'SELECT * FROM bookings WHERE user_id = ? ORDER BY starts_at ASC'
+        return self::paginate(
+            'SELECT * FROM bookings WHERE user_id = ? ORDER BY starts_at ASC',
+            'SELECT COUNT(*) FROM bookings WHERE user_id = ?',
+            [$userId],
+            $page,
+            $limit
         );
-        $stmt->execute([$userId]);
-        return array_map([self::class, 'cast'], $stmt->fetchAll());
     }
 
     /**
-     * @return array<int, array<string, mixed>>
+     * @return array{data: list<array<string, mixed>>, pagination: array<string, int>}
      */
-    public static function listByRoom(int $roomId): array
+    public static function listByRoom(int $roomId, int $page, int $limit): array
     {
-        $stmt = Database::pdo()->prepare(
-            'SELECT * FROM bookings WHERE room_id = ? ORDER BY starts_at ASC'
+        return self::paginate(
+            'SELECT * FROM bookings WHERE room_id = ? ORDER BY starts_at ASC',
+            'SELECT COUNT(*) FROM bookings WHERE room_id = ?',
+            [$roomId],
+            $page,
+            $limit
         );
-        $stmt->execute([$roomId]);
-        return array_map([self::class, 'cast'], $stmt->fetchAll());
     }
 
     /**
@@ -130,6 +137,42 @@ final class Bookings
     public static function listRooms(): array
     {
         return Database::pdo()->query('SELECT id, name FROM rooms ORDER BY id')->fetchAll();
+    }
+
+    /**
+     * @param array<mixed> $params
+     * @return array{data: list<array<string, mixed>>, pagination: array<string, int>}
+     */
+    private static function paginate(
+        string $dataSql,
+        string $countSql,
+        array $params,
+        int $page,
+        int $limit
+    ): array {
+        $limit = min(max($limit, 1), self::MAX_LIMIT);
+        $page = max($page, 1);
+        $offset = ($page - 1) * $limit;
+
+        $pdo = Database::pdo();
+
+        $count = $pdo->prepare($countSql);
+        $count->execute($params);
+        $total = (int)$count->fetchColumn();
+
+        $stmt = $pdo->prepare($dataSql . ' LIMIT ? OFFSET ?');
+        $stmt->execute([...$params, $limit, $offset]);
+        $rows = array_map([self::class, 'cast'], $stmt->fetchAll());
+
+        return [
+            'data' => $rows,
+            'pagination' => [
+                'page' => $page,
+                'limit' => $limit,
+                'total' => $total,
+                'total_pages' => (int)ceil($total / $limit),
+            ],
+        ];
     }
 
     private static function parseDate(string $value, string $field): DateTimeImmutable
