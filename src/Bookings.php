@@ -43,19 +43,50 @@ final class Bookings
             throw new InvalidArgumentException("room_id {$roomId} not found");
         }
 
-        $insert = $pdo->prepare(
-            'INSERT INTO bookings (user_id, room_id, title, starts_at, ends_at)
-             VALUES (:user_id, :room_id, :title, :starts_at, :ends_at)'
-        );
-        $insert->execute([
-            'user_id' => $userId,
-            'room_id' => $roomId,
-            'title' => $title,
-            'starts_at' => $start->format('Y-m-d H:i:s'),
-            'ends_at' => $end->format('Y-m-d H:i:s'),
-        ]);
+        $startStr = $start->format('Y-m-d H:i:s');
+        $endStr = $end->format('Y-m-d H:i:s');
 
-        return self::find((int)$pdo->lastInsertId());
+        $pdo->beginTransaction();
+        try {
+            // Overlap detection: find any room booking that overlaps with the requested interval.
+            // Two intervals [a, b) and [c, d) overlap if a < d AND b > c.
+            $overlap = $pdo->prepare(
+                'SELECT 1 FROM bookings
+                  WHERE room_id   = :room_id
+                    AND starts_at < :ends_at
+                    AND ends_at   > :starts_at
+                  LIMIT 1
+                  FOR UPDATE'
+            );
+            $overlap->execute([
+                'room_id'   => $roomId,
+                'starts_at' => $startStr,
+                'ends_at'   => $endStr,
+            ]);
+            if ($overlap->fetchColumn() !== false) {
+                throw new InvalidArgumentException('Room is already booked for this time slot');
+            }
+
+            $insert = $pdo->prepare(
+                'INSERT INTO bookings (user_id, room_id, title, starts_at, ends_at)
+                 VALUES (:user_id, :room_id, :title, :starts_at, :ends_at)'
+            );
+            $insert->execute([
+                'user_id'   => $userId,
+                'room_id'   => $roomId,
+                'title'     => $title,
+                'starts_at' => $startStr,
+                'ends_at'   => $endStr,
+            ]);
+
+            $id = (int)$pdo->lastInsertId();
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+
+        return self::find($id);
     }
 
     /**

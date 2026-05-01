@@ -66,3 +66,15 @@ Content-Type: application/json
   "starts_at": "2026-05-01T10:00:00",
   "ends_at":   "2026-05-01T11:00:00"
 }
+
+### Невалидный — комната уже занята (пересечение с первым бронированием)
+POST http://127.0.0.1:8080/bookings
+Content-Type: application/json
+
+{
+  "user_id":   "u-789",
+  "room_id":   1,
+  "starts_at": "2026-05-01T10:30:00",
+  "ends_at":   "2026-05-01T11:30:00",
+  "title":     "Конфликт"
+}
